@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sand Harbor — Parking Availability</title>
+<style>
+  :root{
+    --bg:#0f1720; --card:#172230; --ink:#e8eef4; --muted:#8aa0b4;
+    --line:#26384a; --accent:#27c2a0; --accent2:#3aa0ff;
+    --open:#1f9e6e; --few:#caa23a; --full:#7a2e35; --closed:#283747;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:22px 18px 80px}
+  header h1{margin:0 0 2px;font-size:24px}
+  header .sub{color:var(--muted);font-size:14px}
+  .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0 10px}
+  button{background:var(--accent);color:#04201a;border:0;border-radius:8px;padding:9px 16px;font-weight:700;cursor:pointer;font-size:14px}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  button:disabled{opacity:.5;cursor:wait}
+  .updated{color:var(--muted);font-size:13px;margin-left:auto}
+  .note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:8px 0 18px;color:var(--muted);font-size:13.5px}
+  .note b{color:var(--ink)}
+  .summary{background:linear-gradient(180deg,#15303a,#142230);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:22px}
+  .summary h2{margin:0 0 4px;font-size:17px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .chip{display:flex;flex-direction:column;gap:1px;text-decoration:none;background:#103a2c;border:1px solid #1f6e52;color:#c8f5e4;
+        border-radius:10px;padding:7px 11px;min-width:96px}
+  .chip .d{font-weight:700;font-size:13.5px}
+  .chip .m{font-size:11.5px;color:#7fd9bb}
+  .chip:hover{border-color:var(--accent)}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0 18px;font-size:12.5px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:13px;height:13px;border-radius:3px;display:inline-block}
+  section.fac{margin-bottom:26px}
+  .fachead{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+  .fachead h3{margin:0;font-size:16px}
+  .fachead a{color:var(--accent2);font-size:13px;text-decoration:none}
+  .fachead .meta{color:var(--muted);font-size:12.5px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+  .cell{border-radius:8px;padding:6px 4px;text-align:center;border:1px solid transparent;min-height:54px;display:flex;flex-direction:column;justify-content:center;text-decoration:none;color:inherit}
+  .cell .wd{font-size:10.5px;opacity:.8}
+  .cell .dn{font-size:15px;font-weight:700;line-height:1.1}
+  .cell .av{font-size:10.5px;margin-top:2px}
+  .open{background:var(--open);color:#eafff6} .open .av{color:#bdf6df}
+  .few{background:var(--few);color:#2a2202} .few .av{color:#4a3c05}
+  .full{background:var(--full);color:#f6c9cd} .full .av{opacity:.75}
+  .closed{background:var(--closed);color:#5f7387}
+  .open:hover,.few:hover{outline:2px solid #fff}
+  .err{background:#3a1d22;border:1px solid #7a2e35;color:#ffd7dc;padding:12px 14px;border-radius:10px;margin:10px 0}
+  .loading{color:var(--muted);padding:30px 0;text-align:center}
+  .mono{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🏖️ Sand Harbor — Day-Use Parking</h1>
+    <div class="sub">Live availability across all four booking windows · Lake Tahoe Nevada State Park</div>
+  </header>
+
+  <div class="bar">
+    <button id="refresh" onclick="load()">↻ Refresh</button>
+    <label class="ghost" style="display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="auto"> Auto-refresh (60s)
+    </label>
+    <label class="ghost" style="display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="onlyopen"> Only show open dates
+    </label>
+    <span class="updated" id="updated"></span>
+  </div>
+
+  <div class="note">
+    <b>How their system works:</b> Sand Harbor sells the <i>same</i> parking lot through four separate pools that open inventory on a rolling schedule —
+    <b>1, 7, 30, and 90 days</b> in advance. A new day's worth of spots is released each morning at the far edge of each window, then gets grabbed fast.
+    So "available" dates are almost always clustered near the <b>90-day edge</b> (plan-ahead) or <b>tomorrow</b> (last-minute). Click any green/yellow date to jump straight to that pool's booking page.
+  </div>
+
+  <div class="summary" id="summary"><div class="loading">Loading live availability…</div></div>
+
+  <div class="legend">
+    <span><i class="sw open"></i> Open (plenty)</span>
+    <span><i class="sw few"></i> Almost gone (1–10)</span>
+    <span><i class="sw full"></i> Sold out</span>
+    <span><i class="sw closed"></i> Not released / closed</span>
+  </div>
+
+  <div id="facilities"></div>
+</div>
+
+<script>
+const PARK_ID = 17;
+const FACILITIES = [
+  {id:97, name:"1 day in advance",  units:75},
+  {id:94, name:"7 days in advance", units:50},
+  {id:95, name:"30 days in advance",units:100},
+  {id:96, name:"90 days in advance",units:200},
+];
+const API = "https://nevadardr.usedirect.com/NevadaRDR/rdr/search/occupancygrid";
+const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function ymd(dt){return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");}
+function parseYMD(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);}
+function bookingUrl(facId){return `https://reservenevada.com/NevadaWeb/#!park/${PARK_ID}/${facId}`;}
+
+async function fetchFacility(fac, startStr){
+  const url = `${API}/${fac.id}/startdate/${startStr}/nights/95/0`;
+  const r = await fetch(url, {headers:{Accept:"application/json"}});
+  if(!r.ok) throw new Error(`Facility ${fac.id}: HTTP ${r.status}`);
+  const j = await r.json();
+  const days = [];
+  const dates = (j.Facility && j.Facility.Dates) || {};
+  for(const k in dates){
+    const v = dates[k];
+    days.push({date:v.Date, avail:v.TotalAvailable|0, reserved:v.ReservationCount|0, units:v.UnitCount|0});
+  }
+  days.sort((a,b)=>a.date<b.date?-1:1);
+  return {...fac, days};
+}
+
+function classify(d){
+  if(d.avail > 10) return "open";
+  if(d.avail > 0)  return "few";
+  if(d.reserved > 0) return "full";
+  return "closed";
+}
+
+function load(){
+  const btn = document.getElementById("refresh");
+  btn.disabled = true; btn.textContent = "↻ Loading…";
+  const start = ymd(new Date());
+  Promise.all(FACILITIES.map(f=>fetchFacility(f,start)))
+    .then(render)
+    .catch(err=>{
+      document.getElementById("summary").innerHTML =
+        `<div class="err"><b>Couldn't reach the reservation API.</b><br>${err.message}<br>
+         This usually means a temporary outage on reservenevada's side — try Refresh in a minute.</div>`;
+    })
+    .finally(()=>{btn.disabled=false; btn.textContent="↻ Refresh";});
+}
+
+function render(results){
+  const onlyOpen = document.getElementById("onlyopen").checked;
+
+  // ---- summary: every date with any open spots, across all pools ----
+  const openMap = {}; // date -> [{facName, avail, id}]
+  results.forEach(f=>f.days.forEach(d=>{
+    if(d.avail>0){ (openMap[d.date]=openMap[d.date]||[]).push({name:f.name,avail:d.avail,id:f.id}); }
+  }));
+  const openDates = Object.keys(openMap).sort();
+  const totalSpots = openDates.reduce((s,dt)=>s+openMap[dt].reduce((a,x)=>a+x.avail,0),0);
+
+  let sum = `<h2>${openDates.length} date${openDates.length===1?"":"s"} with open spots`+
+            ` · ${totalSpots} total parking spots available right now</h2>`;
+  if(openDates.length===0){
+    sum += `<div style="color:var(--muted);margin-top:6px">Everything is currently booked. New inventory drops each morning — check back, or turn on auto-refresh.</div>`;
+  }else{
+    sum += `<div class="chips">`;
+    openDates.forEach(dt=>{
+      const D=parseYMD(dt), best=openMap[dt].reduce((a,b)=>b.avail>a.avail?b:a);
+      const tot=openMap[dt].reduce((a,x)=>a+x.avail,0);
+      sum += `<a class="chip" href="${bookingUrl(best.id)}" target="_blank" title="${openMap[dt].map(x=>x.name+': '+x.avail).join(' · ')}">
+                <span class="d">${WD[D.getDay()]} ${MO[D.getMonth()]} ${D.getDate()}</span>
+                <span class="m mono">${tot} spot${tot===1?"":"s"} · ${best.name.split(" in")[0]}</span>
+              </a>`;
+    });
+    sum += `</div>`;
+  }
+  document.getElementById("summary").innerHTML = sum;
+
+  // ---- per-facility calendars ----
+  let html = "";
+  results.forEach(f=>{
+    const open = f.days.filter(d=>d.avail>0);
+    const shown = onlyOpen ? open : f.days;
+    html += `<section class="fac">
+      <div class="fachead">
+        <h3>${f.name}</h3>
+        <a href="${bookingUrl(f.id)}" target="_blank">book this pool ↗</a>
+        <span class="meta">${f.units} spots · ${open.length} open date${open.length===1?"":"s"}</span>
+      </div>`;
+    if(shown.length===0){
+      html += `<div class="note" style="margin:0">No open dates in this window right now.</div></section>`;
+      return;
+    }
+    html += `<div class="grid">`;
+    shown.forEach(d=>{
+      const D=parseYMD(d.date), cls=classify(d);
+      const clickable = (cls==="open"||cls==="few");
+      const tag = clickable ? "a" : "div";
+      const href = clickable ? ` href="${bookingUrl(f.id)}" target="_blank"` : "";
+      const label = d.avail>0 ? `${d.avail} open` : (cls==="full"?"sold out":"—");
+      html += `<${tag} class="cell ${cls}"${href}>
+        <span class="wd">${WD[D.getDay()]}</span>
+        <span class="dn">${MO[D.getMonth()]} ${D.getDate()}</span>
+        <span class="av mono">${label}</span>
+      </${tag}>`;
+    });
+    html += `</div></section>`;
+  });
+  document.getElementById("facilities").innerHTML = html;
+
+  const now = new Date();
+  document.getElementById("updated").textContent =
+    "Updated " + now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+}
+
+// auto-refresh + filter wiring
+let timer=null;
+document.getElementById("auto").addEventListener("change",e=>{
+  clearInterval(timer);
+  if(e.target.checked) timer=setInterval(load,60000);
+});
+document.getElementById("onlyopen").addEventListener("change",load);
+
+load();
+</script>
+</body>
+</html>
