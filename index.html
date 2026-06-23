@@ -22,6 +22,13 @@
   .updated{color:var(--muted);font-size:13px;margin-left:auto}
   .note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:8px 0 18px;color:var(--muted);font-size:13.5px}
   .note b{color:var(--ink)}
+  .countdown{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:#10202b;border:1px solid var(--line);
+             border-left:3px solid var(--accent2);border-radius:10px;padding:10px 14px;margin:0 0 14px;font-size:13.5px}
+  .countdown .clock{font-weight:700;color:#cfe7ff;font-size:15px}
+  .countdown .clock .t{font-variant-numeric:tabular-nums;color:#fff}
+  .countdown .lbl{color:var(--muted)}
+  .countdown .next{color:var(--muted)}
+  .countdown .next b{color:var(--ink)}
   .summary{background:linear-gradient(180deg,#15303a,#142230);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:22px}
   .summary h2{margin:0 0 4px;font-size:17px}
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
@@ -77,6 +84,8 @@
     So "available" dates are almost always clustered near the <b>90-day edge</b> (plan-ahead) or <b>tomorrow</b> (last-minute). Click any green/yellow date to jump straight to that pool's booking page.
   </div>
 
+  <div class="countdown" id="countdown" hidden></div>
+
   <div class="summary" id="summary"><div class="loading">Loading live availability…</div></div>
 
   <div class="legend">
@@ -101,8 +110,26 @@ const API = "https://nevadardr.usedirect.com/NevadaRDR/rdr/search/occupancygrid"
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+// ── New dates release once per day at MIDNIGHT Pacific. ──
+// If that turns out to be wrong, change ONLY this number (hour, 24h Pacific)
+// — the countdown recalculates itself automatically.
+const RELEASE_HOUR_PT = 0;
+
 function ymd(dt){return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");}
 function parseYMD(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);}
+function addDays(s,n){const d=parseYMD(s);d.setDate(d.getDate()+n);return ymd(d);}
+
+// Time remaining until the next RELEASE_HOUR_PT in America/Los_Angeles.
+// Works from any viewer timezone: we read the current LA wall-clock and the
+// target LA wall-clock as "local" Dates, so their difference is the true gap.
+function nextRelease(){
+  const now = new Date();
+  const la = new Date(now.toLocaleString("en-US",{timeZone:"America/Los_Angeles"}));
+  const target = new Date(la);
+  target.setHours(RELEASE_HOUR_PT,0,0,0);
+  if(target <= la) target.setDate(target.getDate()+1);
+  return {msUntil: target - la};
+}
 function bookingUrl(facId){return `https://reservenevada.com/NevadaWeb/#!park/${PARK_ID}/${facId}`;}
 
 async function fetchFacility(fac, startStr){
@@ -117,7 +144,9 @@ async function fetchFacility(fac, startStr){
     days.push({date:v.Date, avail:v.TotalAvailable|0, reserved:v.ReservationCount|0, units:v.UnitCount|0});
   }
   days.sort((a,b)=>a.date<b.date?-1:1);
-  return {...fac, days};
+  const restr = (j.Facility && j.Facility.Restrictions) || {};
+  const bookingEnds = (restr.FutureBookingEnds || "").slice(0,10); // last currently-bookable date
+  return {...fac, days, bookingEnds};
 }
 
 function classify(d){
@@ -202,9 +231,38 @@ function render(results){
   });
   document.getElementById("facilities").innerHTML = html;
 
+  // ---- next-release countdown ----
+  // Each pool's window advances by one day at the daily release; the next date
+  // to open is the day right after its current last-bookable date.
+  const upcoming = results
+    .filter(f=>f.bookingEnds)
+    .map(f=>({pool:f.name.split(" in")[0], date:addDays(f.bookingEnds,1)}))
+    .sort((a,b)=>a.date<b.date?-1:1);
+  startCountdown(upcoming);
+
   const now = new Date();
   document.getElementById("updated").textContent =
     "Updated " + now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+}
+
+// ---- countdown ticker ----
+let cdTimer=null;
+function fmtNew(date){const D=parseYMD(date);return `${WD[D.getDay()]} ${MO[D.getMonth()]} ${D.getDate()}`;}
+function startCountdown(upcoming){
+  clearInterval(cdTimer);
+  const el = document.getElementById("countdown");
+  if(!upcoming.length){ el.hidden = true; return; }
+  const nextList = upcoming.map(u=>`<b>${fmtNew(u.date)}</b> (${u.pool})`).join(" · ");
+  function tick(){
+    const ms = nextRelease().msUntil;
+    const h = Math.floor(ms/3600000), m = Math.floor(ms%3600000/60000), s = Math.floor(ms%60000/1000);
+    const t = `${h}h ${String(m).padStart(2,"0")}m ${String(s).padStart(2,"0")}s`;
+    el.innerHTML = `<span class="clock">⏱ Next dates open in <span class="t">${t}</span></span>`+
+                   `<span class="lbl">(midnight Pacific)</span>`+
+                   `<span class="next">→ opening: ${nextList}</span>`;
+  }
+  tick(); el.hidden = false;
+  cdTimer = setInterval(tick,1000);
 }
 
 // auto-refresh + filter wiring
