@@ -20,8 +20,15 @@
   button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
   button:disabled{opacity:.5;cursor:wait}
   .updated{color:var(--muted);font-size:13px;margin-left:auto}
-  .note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:8px 0 18px;color:var(--muted);font-size:13.5px}
+  .note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:8px 0 18px;color:var(--muted);font-size:13.5px}
   .note b{color:var(--ink)}
+  .note summary{cursor:pointer;list-style:none;color:var(--ink);font-size:14px}
+  .note summary::-webkit-details-marker{display:none}
+  .note summary::before{content:"▸ ";color:var(--accent)}
+  .note[open] summary::before{content:"▾ "}
+  .note .hint{color:var(--muted);font-weight:400;font-size:12.5px}
+  .note[open] .hint{display:none}
+  .note-body{margin-top:8px}
   .countdown{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:#10202b;border:1px solid var(--line);
              border-left:3px solid var(--accent2);border-radius:10px;padding:10px 14px;margin:0 0 14px;font-size:13.5px}
   .countdown .clock{font-weight:700;color:#cfe7ff;font-size:15px}
@@ -58,6 +65,36 @@
   .err{background:#3a1d22;border:1px solid #7a2e35;color:#ffd7dc;padding:12px 14px;border-radius:10px;margin:10px 0}
   .loading{color:var(--muted);padding:30px 0;text-align:center}
   .mono{font-variant-numeric:tabular-nums}
+  html{-webkit-text-size-adjust:100%}
+  a,button,summary,.cell{-webkit-tap-highlight-color:transparent}
+  .wrap{padding-top:max(22px,env(safe-area-inset-top));
+        padding-left:max(18px,env(safe-area-inset-left));
+        padding-right:max(18px,env(safe-area-inset-right))}
+
+  /* ---- phones ---- */
+  @media (max-width:560px){
+    .wrap{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));padding-bottom:64px}
+    header h1{font-size:20px;line-height:1.2}
+    header .sub{font-size:12.5px}
+    .bar{gap:8px;margin:14px 0 10px}
+    button{padding:11px 14px}                 /* keep tap targets ≥44px tall */
+    .bar label{flex:1 1 auto;justify-content:center}
+    #refresh{flex:1 1 100%}
+    .updated{margin-left:0;width:100%;order:9}
+    .note{font-size:13px}
+    .summary{padding:14px}
+    .summary h2{font-size:15.5px}
+    .chips{gap:7px}
+    .chip{flex:1 1 calc(50% - 7px);min-width:0}   /* two chips per row */
+    .countdown{font-size:13px;padding:10px 12px}
+    .countdown .clock{font-size:14px}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:5px}
+    .cell{min-height:52px;padding:5px 2px}
+    .cell .dn{font-size:13.5px}
+    .cell .wd,.cell .av{font-size:10px}
+    .fachead{flex-wrap:wrap;gap:4px 10px}
+    .legend{gap:10px 14px}
+  }
 </style>
 </head>
 <body>
@@ -78,11 +115,12 @@
     <span class="updated" id="updated"></span>
   </div>
 
-  <div class="note">
-    <b>How their system works:</b> Sand Harbor sells the <i>same</i> parking lot through four separate pools that open inventory on a rolling schedule —
-    <b>1, 7, 30, and 90 days</b> in advance. A new day's worth of spots is released each morning at the far edge of each window, then gets grabbed fast.
-    So "available" dates are almost always clustered near the <b>90-day edge</b> (plan-ahead) or <b>tomorrow</b> (last-minute). Click any green/yellow date to jump straight to that pool's booking page.
-  </div>
+  <details class="note">
+    <summary><b>How their system works</b> <span class="hint">— tap to read</span></summary>
+    <div class="note-body">Sand Harbor sells the <i>same</i> parking lot through four separate pools that open inventory on a rolling schedule —
+    <b>1, 7, 30, and 90 days</b> in advance. A new day's worth of spots is released each night at the far edge of each window, then gets grabbed fast.
+    So "available" dates are almost always clustered near the <b>90-day edge</b> (plan-ahead) or <b>tomorrow</b> (last-minute). Tap any green/yellow date to jump straight to that pool's booking page.</div>
+  </details>
 
   <div class="countdown" id="countdown" hidden></div>
 
