@@ -150,7 +150,7 @@ const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","D
 
 // ── When new dates release each day, in Pacific time (24-hour). ──
 // The countdown targets this time and re-labels itself automatically.
-const RELEASE_HOUR_PT = 0;
+const RELEASE_HOUR_PT = 8;
 const RELEASE_MIN_PT = 0;
 function releaseLabel(){const h=RELEASE_HOUR_PT,m=RELEASE_MIN_PT,hh=((h+11)%12)+1,ap=h<12?"AM":"PM";return `${hh}:${String(m).padStart(2,"0")} ${ap} Pacific`;}
 
