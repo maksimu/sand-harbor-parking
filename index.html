@@ -148,10 +148,11 @@ const API = "https://nevadardr.usedirect.com/NevadaRDR/rdr/search/occupancygrid"
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-// ── New dates release once per day at MIDNIGHT Pacific. ──
-// If that turns out to be wrong, change ONLY this number (hour, 24h Pacific)
-// — the countdown recalculates itself automatically.
+// ── When new dates release each day, in Pacific time (24-hour). ──
+// The countdown targets this time and re-labels itself automatically.
 const RELEASE_HOUR_PT = 0;
+const RELEASE_MIN_PT = 0;
+function releaseLabel(){const h=RELEASE_HOUR_PT,m=RELEASE_MIN_PT,hh=((h+11)%12)+1,ap=h<12?"AM":"PM";return `${hh}:${String(m).padStart(2,"0")} ${ap} Pacific`;}
 
 function ymd(dt){return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");}
 function parseYMD(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);}
@@ -164,7 +165,7 @@ function nextRelease(){
   const now = new Date();
   const la = new Date(now.toLocaleString("en-US",{timeZone:"America/Los_Angeles"}));
   const target = new Date(la);
-  target.setHours(RELEASE_HOUR_PT,0,0,0);
+  target.setHours(RELEASE_HOUR_PT,RELEASE_MIN_PT,0,0);
   if(target <= la) target.setDate(target.getDate()+1);
   return {msUntil: target - la};
 }
@@ -296,7 +297,7 @@ function startCountdown(upcoming){
     const h = Math.floor(ms/3600000), m = Math.floor(ms%3600000/60000), s = Math.floor(ms%60000/1000);
     const t = `${h}h ${String(m).padStart(2,"0")}m ${String(s).padStart(2,"0")}s`;
     el.innerHTML = `<span class="clock">⏱ Next dates open in <span class="t">${t}</span></span>`+
-                   `<span class="lbl">(midnight Pacific)</span>`+
+                   `<span class="lbl">(${releaseLabel()})</span>`+
                    `<span class="next">→ opening: ${nextList}</span>`;
   }
   tick(); el.hidden = false;
