@@ -81,6 +81,11 @@
     background-image:radial-gradient(circle, rgba(238,246,255,.9) .7px, transparent 1.5px);
     background-size:11px 11px; background-position:var(--gp,50%) var(--gy,20%);
     mix-blend-mode:color-dodge; opacity:.10}
+  #tiltbtn{position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:20;
+    background:rgba(28,38,50,.92);color:#dbe8f6;border:1px solid rgba(210,224,240,.4);border-radius:999px;
+    padding:10px 16px;font:600 13.5px/1 inherit;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    box-shadow:0 6px 20px rgba(0,0,0,.45)}
+  #tiltbtn:active{transform:translateX(-50%) scale(.97)}
   .open:hover,.few:hover{outline:2px solid #fff}
   .err{background:#3a1d22;border:1px solid #7a2e35;color:#ffd7dc;padding:12px 14px;border-radius:10px;margin:10px 0}
   .loading{color:var(--muted);padding:30px 0;text-align:center}
@@ -340,15 +345,23 @@ document.getElementById("onlyopen").addEventListener("change",load);
 
 load();
 
-// ---- gold sheen driver: pointer + phone tilt (never prompts for permission) ----
+// ---- sheen driver: pointer + phone tilt. iOS needs a one-tap opt-in (Apple requires it). ----
 (function(){
   const clamp = v => Math.max(-1, Math.min(1, v));
   let tx=0, ty=0, cx=0, cy=0;              // target + smoothed light direction (-1..1)
   const set = (px,py) => { tx=clamp(px); ty=clamp(py); };
   addEventListener("pointermove", e => set((e.clientX/innerWidth)*2-1, (e.clientY/innerHeight)*2-1), {passive:true});
-  // Android/desktop sensors fire without permission; iOS stays silent (we never call requestPermission)
-  addEventListener("deviceorientation", e => { if(e.gamma==null && e.beta==null) return;
-    set((e.gamma||0)/40, ((e.beta||40)-40)/40); }, {passive:true});
+  function onTilt(e){ if(e.gamma==null && e.beta==null) return; set((e.gamma||0)/40, ((e.beta||40)-40)/40); }
+  const iOSNeedsPerm = typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function";
+  if(!iOSNeedsPerm){
+    addEventListener("deviceorientation", onTilt, {passive:true});   // Android + desktop: no prompt needed
+  } else {
+    const b=document.createElement("button"); b.id="tiltbtn"; b.type="button"; b.textContent="✨ Enable tilt effect";
+    b.onclick=()=>{ DeviceOrientationEvent.requestPermission()
+      .then(s=>{ if(s==="granted") addEventListener("deviceorientation", onTilt, {passive:true}); })
+      .catch(()=>{}).finally(()=>b.remove()); };
+    document.body.appendChild(b);
+  }
   const root = document.documentElement.style;
   (function frame(){
     cx += (tx-cx)*0.07; cy += (ty-cy)*0.07;   // smooth, unhurried
