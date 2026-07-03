@@ -61,9 +61,28 @@
   .few{background:var(--few);color:#2a2202} .few .av{color:#4a3c05}
   .full{background:var(--full);color:#f6c9cd} .full .av{opacity:.75}
   .closed{background:var(--closed);color:#5f7387}
-  .nextup{background:#2a2410;color:#ffe0a3;box-shadow:inset 0 0 0 1.6px rgba(255,201,90,.55)}
-  .nextup .wd{color:#c9a85a}
-  .nextcd{color:#ffd98a;font-weight:700;font-size:9.5px;letter-spacing:-.2px}
+  .nextup{position:relative;overflow:hidden;color:#ffe6b0;
+    background:linear-gradient(150deg,#3a2f12,#241d0b);
+    box-shadow:inset 0 0 0 1.4px rgba(255,208,110,.6), 0 0 12px rgba(255,190,70,.16)}
+  .nextup > span{position:relative;z-index:2}
+  .nextup .wd{color:#d8b45f}
+  .nextcd{color:#ffe4a6;font-weight:700;font-size:9.5px;letter-spacing:-.2px;text-shadow:0 0 6px rgba(255,205,90,.55)}
+  .nextup::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(circle,rgba(255,244,210,.95) 0.9px,transparent 1.8px),
+               radial-gradient(circle,rgba(255,240,200,.9) 0.8px,transparent 1.7px),
+               radial-gradient(circle,rgba(255,236,190,.85) 0.7px,transparent 1.5px);
+    background-repeat:no-repeat;background-position:20% 32%,74% 60%,52% 80%;opacity:.25}
+  .nextup::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(115deg,transparent 34%,rgba(255,228,160,.28) 47%,rgba(255,255,255,.5) 50%,rgba(255,228,160,.28) 53%,transparent 66%);
+    background-size:260% 100%;background-position:180% 0}
+  @media (prefers-reduced-motion:no-preference){
+    .nextup{animation:goldpulse 3.8s ease-in-out infinite}
+    .nextup::before{animation:twinkle 2.6s ease-in-out infinite}
+    .nextup::after{animation:goldsheen 4.2s ease-in-out infinite}
+    @keyframes goldpulse{0%,100%{box-shadow:inset 0 0 0 1.4px rgba(255,205,95,.5),0 0 10px rgba(255,190,70,.13)}50%{box-shadow:inset 0 0 0 1.4px rgba(255,222,130,.85),0 0 16px rgba(255,200,90,.3)}}
+    @keyframes twinkle{0%,100%{opacity:.12}50%{opacity:.85}}
+    @keyframes goldsheen{0%{background-position:180% 0}55%,100%{background-position:-120% 0}}
+  }
   .open:hover,.few:hover{outline:2px solid #fff}
   .err{background:#3a1d22;border:1px solid #7a2e35;color:#ffd7dc;padding:12px 14px;border-radius:10px;margin:10px 0}
   .loading{color:var(--muted);padding:30px 0;text-align:center}
