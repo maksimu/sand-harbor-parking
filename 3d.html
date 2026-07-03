@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Sand Harbor — Cube View</title>
+<style>
+  :root{ --ink:#eaf1f8; --muted:#9fb3c6; --line:rgba(255,255,255,.14); --accent:#46e0c0; --accent2:#6cb6ff; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:radial-gradient(1200px 800px at 70% -10%, #14323f 0%, #0b1622 55%, #060c14 100%);
+       color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+  #scene{position:fixed;inset:0;display:block;touch-action:none;cursor:grab}
+  #scene.grabbing{cursor:grabbing}
+
+  .top{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;
+       padding:max(12px,env(safe-area-inset-top)) 16px 12px;background:linear-gradient(180deg,rgba(6,12,20,.78),rgba(6,12,20,0))}
+  .top h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.2px}
+  .top .back{color:var(--accent2);text-decoration:none;font-size:13px}
+  .spacer{flex:1}
+  .seg{display:flex;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .seg button{background:transparent;border:0;color:var(--muted);font:600 12.5px/1 inherit;padding:7px 11px;border-radius:999px;cursor:pointer}
+  .seg button.on{background:rgba(255,255,255,.14);color:#fff}
+  .btn{background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:8px 13px;font:600 12.5px/1 inherit;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+  .btn.live{border-color:rgba(70,224,192,.5);color:#bff5e8}
+  .btn:disabled{opacity:.55;cursor:default}
+
+  .pools{position:fixed;left:16px;top:74px;z-index:5;display:flex;flex-direction:column;gap:6px}
+  .pools button{display:flex;align-items:center;gap:8px;background:rgba(8,16,24,.5);border:1px solid var(--line);color:var(--ink);
+       border-radius:10px;padding:7px 11px;font:600 12.5px/1 inherit;cursor:pointer;min-width:158px;text-align:left;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  .pools button.on{border-color:var(--accent);background:rgba(70,224,192,.16);color:#fff}
+  .pools .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .pools .c{margin-left:auto;color:var(--muted);font-weight:400;padding-left:10px}
+  .pools button.on .c{color:#bff5e8}
+
+  .tip{position:fixed;z-index:7;background:rgba(8,16,24,.94);border:1px solid var(--line);border-radius:10px;padding:7px 11px;font-size:12.5px;pointer-events:none;transform:translate(-50%,-135%);white-space:nowrap;opacity:0;transition:opacity .1s}
+  .tip b{color:#fff} .tip .g{color:#7fe7c0} .tip .r{color:#f0a6ac} .tip .s{color:var(--muted)}
+  .nextchip{position:fixed;z-index:4;transform:translate(-50%,-50%);background:rgba(26,18,4,.85);border:1px solid #7a5f22;
+       color:#ffdf9b;border-radius:9px;padding:3px 8px;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;
+       pointer-events:none;white-space:nowrap;box-shadow:0 0 14px rgba(255,190,60,.25);opacity:0;transition:opacity .3s}
+  .nextchip .u{display:block;text-align:center;font-size:9.5px;font-weight:400;color:#d0ad55;margin-top:1px}
+
+  .panel{position:fixed;z-index:6;right:16px;bottom:max(16px,env(safe-area-inset-bottom));width:330px;max-width:calc(100vw - 32px);
+         background:rgba(10,20,30,.84);border:1px solid var(--line);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+         border-radius:16px;padding:14px 16px;transform:translateY(20px);opacity:0;pointer-events:none;transition:.28s}
+  .panel.show{transform:none;opacity:1;pointer-events:auto}
+  .panel h2{margin:0 0 2px;font-size:15.5px} .panel .sub{color:var(--muted);font-size:12.5px;margin-bottom:10px}
+  .panel .chips{display:flex;flex-wrap:wrap;gap:6px;max-height:140px;overflow:auto}
+  .panel .chip{background:#103a2c;border:1px solid #1f6e52;color:#c8f5e4;border-radius:9px;padding:5px 8px;font-size:12px;text-decoration:none}
+  .panel .chip:hover{border-color:var(--accent)} .panel .empty{color:var(--muted);font-size:13px}
+  .panel .go{display:inline-block;margin-top:11px;background:var(--accent);color:#04231d;font-weight:700;text-decoration:none;border-radius:10px;padding:9px 14px;font-size:13px}
+  .panel .x{position:absolute;top:10px;right:12px;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}
+
+  .legend{position:fixed;left:16px;bottom:max(14px,env(safe-area-inset-bottom));z-index:4;display:flex;flex-direction:column;gap:6px;
+          background:rgba(8,16,24,.5);border:1px solid var(--line);border-radius:11px;padding:9px 12px;font-size:12px;color:var(--muted)}
+  .legend .row{display:flex;gap:13px;flex-wrap:wrap} .legend .t{color:#cfe7ff;font-weight:700;font-variant-numeric:tabular-nums}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .hint{position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:4;color:var(--muted);font-size:12.5px;text-align:center;
+        background:rgba(8,16,24,.55);border:1px solid var(--line);border-radius:999px;padding:6px 14px;transition:opacity .5s}
+  .err{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:8;background:#3a1d22;border:1px solid #7a2e35;color:#ffd7dc;padding:14px 18px;border-radius:12px;max-width:80vw;text-align:center}
+  video#cam{position:fixed;width:2px;height:2px;opacity:0;pointer-events:none;top:0;left:0}
+  @media (max-width:640px){
+    .top{padding-bottom:8px} .top h1{font-size:13px} .seg button{padding:6px 8px} .btn{padding:7px 10px}
+    .pools{left:8px;right:8px;top:auto;bottom:8px;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;gap:6px}
+    .pools button{flex:0 0 auto;min-width:0}
+    .legend{left:8px;bottom:60px;font-size:11px}
+    .panel{left:8px;right:8px;bottom:8px;width:auto}
+    .hint{top:98px;max-width:92vw}
+  }
+</style>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <video id="cam" playsinline muted></video>
+
+  <div class="top">
+    <h1>🏖️ Sand Harbor · Cube View</h1>
+    <a class="back" href="./index.html">← list view</a>
+    <div class="spacer"></div>
+    <div class="seg" id="styleSeg">
+      <button data-style="iridescent" class="on">Iridescent</button>
+      <button data-style="clear">Clear</button>
+      <button data-style="frosted">Frosted</button>
+    </div>
+    <button class="btn" id="resetBtn" title="Reassemble the cube">⊞ Assemble</button>
+    <button class="btn" id="trackBtn" title="Use your webcam (on-device) so the cube follows your head">👁 Head-tracking</button>
+  </div>
+
+  <div class="pools" id="pools"></div>
+  <div class="tip" id="tip"></div>
+  <div class="nextchip" id="nextchip"></div>
+  <div class="hint" id="hint">Drag to spin · tap a slice to pull a pool forward · tap a glowing day to book</div>
+
+  <div class="legend" id="legend">
+    <div class="t" id="cd">Loading…</div>
+    <div class="row"><span><i style="background:#2ee08a"></i>open</span><span><i style="background:#8a2f38"></i>sold out</span><span><i style="background:#3a5670"></i>held</span><span><i style="background:rgba(255,255,255,.25)"></i>not in window</span></div>
+  </div>
+
+  <div class="panel" id="panel">
+    <span class="x" id="panelX">✕</span>
+    <h2 id="pTitle">—</h2><div class="sub" id="pSub"></div>
+    <div class="chips" id="pChips"></div>
+    <a class="go" id="pGo" href="#" target="_blank">Book this pool ↗</a>
+  </div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+addEventListener("error",ev=>{const cd=document.getElementById("cd");if(cd&&cd.textContent.indexOf("ERR")<0)cd.textContent="ERR: "+((ev.error&&ev.error.message)||ev.message);});
+
+// ---------------- data ----------------
+const PARK_ID=17, API="https://nevadardr.usedirect.com/NevadaRDR/rdr/search/occupancygrid";
+const POOLS=[
+  {id:97,name:"1 day in advance",  short:"1 day",  units:75, tint:0x9fdcff},
+  {id:94,name:"7 days in advance", short:"7 days", units:50, tint:0xa8ffd0},
+  {id:95,name:"30 days in advance",short:"30 days",units:100,tint:0xffe0a0},
+  {id:96,name:"90 days in advance",short:"90 days",units:200,tint:0xffb0c4},
+];
+const COLS=13, ROWS=7, N=COLS*ROWS, DEPTH=POOLS.length;   // 13 weeks x 7 days = 91 cubies/slice
+const WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const RELEASE_HOUR_PT = 8;
+const RELEASE_MIN_PT = 0;
+function releaseLabel(){const h=RELEASE_HOUR_PT,m=RELEASE_MIN_PT,hh=((h+11)%12)+1,ap=h<12?"AM":"PM";return `${hh}:${String(m).padStart(2,"0")} ${ap} PT`;}
+const ymd=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const parseYMD=s=>{const[a,b,c]=s.split("-").map(Number);return new Date(a,b-1,c);};
+const fmt=s=>{const d=parseYMD(s);return `${WD[d.getDay()]} ${MO[d.getMonth()]} ${d.getDate()}`;};
+const bookingUrl=id=>`https://reservenevada.com/NevadaWeb/#!park/${PARK_ID}/${id}`;
+const TODAY=new Date(); TODAY.setHours(0,0,0,0);
+const DATES=Array.from({length:N},(_,k)=>{const d=new Date(TODAY);d.setDate(d.getDate()+k);return ymd(d);});
+
+async function fetchPool(p,start){
+  const r=await fetch(`${API}/${p.id}/startdate/${start}/nights/${N}/0`,{headers:{Accept:"application/json"}});
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  const j=await r.json(), raw=(j.Facility&&j.Facility.Dates)||{}, by={};
+  for(const k in raw){const v=raw[k];by[v.Date]={avail:v.TotalAvailable|0,reserved:v.ReservationCount|0};}
+  const ends=((j.Facility&&j.Facility.Restrictions||{}).FutureBookingEnds||"").slice(0,10);
+  const cells=DATES.map(date=>{ const d=by[date]||{avail:0,reserved:0};
+    const inWin = ends ? date<=ends : (d.avail>0||d.reserved>0);
+    let status="out"; if(inWin) status=d.avail>0?"open":(d.reserved>0?"full":"hold");
+    return {date,status,avail:d.avail,reserved:d.reserved}; });
+  return {...p, cells, open:cells.filter(c=>c.status==="open").map(c=>({date:c.date,avail:c.avail})), bookingEnds:ends};
+}
+function nextReleaseMs(){ const now=new Date(), la=new Date(now.toLocaleString("en-US",{timeZone:"America/Los_Angeles"}));
+  const t=new Date(la); t.setHours(RELEASE_HOUR_PT,RELEASE_MIN_PT,0,0); if(t<=la) t.setDate(t.getDate()+1); return t-la; }
+
+// ---------------- renderer / scene ----------------
+const canvas=document.getElementById("scene");
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+const isMobile=matchMedia("(max-width:640px)").matches;
+renderer.setPixelRatio(Math.min(devicePixelRatio,isMobile?1.6:2));
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.1;
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 100);
+camera.position.set(0,0,8.6);
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(),0.02).texture;
+const keyLight=new THREE.DirectionalLight(0xffffff,1.4); keyLight.position.set(5,7,6); scene.add(keyLight);
+const rim=new THREE.PointLight(0x6cb6ff,45,50); rim.position.set(-7,-2,5); scene.add(rim);
+const spark=new THREE.PointLight(0xffffff,55,40); spark.position.set(0,4,7); scene.add(spark);
+
+const cube=new THREE.Group(); scene.add(cube);
+
+// geometry + layout
+const PX=0.30, GAP=0.92;                 // pitch + fill factor
+const CW=PX*GAP;                          // clear cubie size
+const cubieGeo=new THREE.BoxGeometry(CW,CW,CW);
+const coreGeo=new THREE.BoxGeometry(CW*0.66,CW*0.66,CW*0.66);
+const cellXY=k=>{ const c=Math.floor(k/ROWS), r=k%ROWS;   // column = week, row = weekday
+  return [ (c-(COLS-1)/2)*PX, ((ROWS-1)/2 - r)*PX ]; };
+const poolZ=p=>((DEPTH-1)/2 - p)*PX;     // pool 0 (1-day) toward camera (+z)
+
+const STYLES={
+  iridescent:{op:0.18,roughness:0.06,clearcoat:1,clearcoatRoughness:0.06,iridescence:1,iridescenceIOR:1.4,envMapIntensity:1.3,ior:1.4,bloom:0.45,tintMix:0.5},
+  clear:{op:0.12,roughness:0.02,clearcoat:1,clearcoatRoughness:0.04,iridescence:0.12,iridescenceIOR:1.3,envMapIntensity:1.2,ior:1.5,bloom:0.3,tintMix:0.22},
+  frosted:{op:0.34,roughness:0.35,clearcoat:0.7,clearcoatRoughness:0.35,iridescence:0.25,iridescenceIOR:1.3,envMapIntensity:0.9,ior:1.42,bloom:0.22,tintMix:0.6},
+};
+let styleName="iridescent";
+
+function statusColor(c){
+  if(c.status==="open"){ const f=Math.min(1,c.avail/40); return new THREE.Color(0x2ee08a).multiplyScalar(0.78+0.5*f); }
+  if(c.status==="full") return new THREE.Color(0x8a2f38).multiplyScalar(0.75);
+  if(c.status==="hold") return new THREE.Color(0x3a5670).multiplyScalar(0.8);
+  return new THREE.Color(0x000000);
+}
+
+const poolGroups=[], glassMeshes=[], coreMeshes=[], nextMarkers=[];
+POOLS.forEach((p,i)=>{
+  const pg=new THREE.Group(); pg.position.z=poolZ(i);
+  pg.userData={idx:i, homeZ:poolZ(i), tZ:poolZ(i), tOp:1};
+  const glass=new THREE.InstancedMesh(cubieGeo, makeGlassMat(p), N);
+  glass.userData={pool:i}; pg.add(glass);
+  const core=new THREE.InstancedMesh(coreGeo, new THREE.MeshBasicMaterial({transparent:true,opacity:0.95,toneMapped:false,depthWrite:false}), N);
+  core.userData={pool:i}; core.renderOrder=2; pg.add(core);
+  const dm=new THREE.Object3D();
+  for(let k=0;k<N;k++){ const[x,y]=cellXY(k); dm.position.set(x,y,0); dm.scale.setScalar(1); dm.updateMatrix(); glass.setMatrixAt(k,dm.matrix);
+    dm.scale.setScalar(0.0001); dm.updateMatrix(); core.setMatrixAt(k,dm.matrix); core.setColorAt(k,new THREE.Color(0)); }
+  glass.instanceMatrix.needsUpdate=true; core.instanceMatrix.needsUpdate=true;
+  cube.add(pg); poolGroups.push(pg); glassMeshes.push(glass); coreMeshes.push(core);
+});
+function makeGlassMat(p){
+  return new THREE.MeshPhysicalMaterial({transparent:true,transmission:0,depthWrite:false,metalness:0,
+    color:new THREE.Color(0xffffff).lerp(new THREE.Color(p.tint),0.3)});
+}
+function applyStyle(name){ styleName=name; const s=STYLES[name];
+  glassMeshes.forEach((g,i)=>{ const m=g.material, tint=new THREE.Color(POOLS[i].tint);
+    m.opacity=s.op; m.roughness=s.roughness; m.clearcoat=s.clearcoat; m.clearcoatRoughness=s.clearcoatRoughness;
+    m.iridescence=s.iridescence; m.iridescenceIOR=s.iridescenceIOR; m.envMapIntensity=s.envMapIntensity; m.ior=s.ior;
+    m.color=new THREE.Color(0xffffff).lerp(tint,s.tintMix*0.5); m.needsUpdate=true; });
+  if(bloomPass) bloomPass.strength=s.bloom*(isMobile?0.8:1);
+}
+function updateCores(i){ const core=coreMeshes[i], cells=POOLS[i].cells, dm=new THREE.Object3D();
+  cells.forEach((c,k)=>{ const[x,y]=cellXY(k); const on=c.status!=="out"&&c.status!=="hold"? true : c.status==="hold";
+    const show=c.status!=="out"; dm.position.set(x,y,0); dm.scale.setScalar(show?1:0.0001); dm.updateMatrix();
+    core.setMatrixAt(k,dm.matrix); core.setColorAt(k,statusColor(c)); });
+  core.instanceMatrix.needsUpdate=true; if(core.instanceColor) core.instanceColor.needsUpdate=true; }
+
+// post
+const composer=new EffectComposer(renderer); composer.addPass(new RenderPass(scene,camera));
+let bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.45,0.5,0.9); composer.addPass(bloomPass); composer.addPass(new OutputPass());
+applyStyle(styleName);
+
+const BASE_Z=8.6; let fitScale=1;
+function resize(){ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
+  const vH=2*BASE_Z*Math.tan(THREE.MathUtils.degToRad(camera.fov/2)), vW=vH*camera.aspect;
+  fitScale=Math.min(vW/5.0, vH/3.4, 1.0)*(camera.aspect<1?0.82:0.95); cube.scale.setScalar(fitScale); }
+addEventListener("resize",resize); resize();
+
+// ---------------- interaction: drag-rotate + parallax + pick ----------------
+const rot={x:0.32,y:-0.5}, tilt={x:0,y:0}, aim={x:0,y:0};
+let dragging=false, last=null, moved=0, selectedPool=null;
+const ray=new THREE.Raycaster(), ptr=new THREE.Vector2();
+function setPtr(e){ ptr.x=(e.clientX/innerWidth)*2-1; ptr.y=-(e.clientY/innerHeight)*2+1; ray.setFromCamera(ptr,camera); }
+
+canvas.addEventListener("pointerdown",e=>{ dragging=true; moved=0; last=[e.clientX,e.clientY]; canvas.classList.add("grabbing"); try{canvas.setPointerCapture(e.pointerId);}catch(_){} });
+addEventListener("pointermove",e=>{
+  if(!faceOn){ aim.x=(e.clientX/innerWidth)*2-1; aim.y=(e.clientY/innerHeight)*2-1; }
+  if(dragging){ const dx=e.clientX-last[0], dy=e.clientY-last[1]; moved+=Math.abs(dx)+Math.abs(dy);
+    rot.y+=dx*0.007; rot.x=Math.max(-1.1,Math.min(1.1,rot.x+dy*0.007)); last=[e.clientX,e.clientY]; hideHint(); return; }
+  hoverPick(e);
+});
+canvas.addEventListener("pointerup",e=>{ canvas.classList.remove("grabbing");
+  const wasDrag=moved>8; dragging=false;
+  if(wasDrag) return;
+  setPtr(e);
+  // tap a glowing (open) core on the front-most / selected pool -> book
+  const ch=ray.intersectObjects(coreMeshes,false)[0];
+  if(ch){ const p=ch.object.userData.pool, c=POOLS[p].cells[ch.instanceId];
+    if(c&&c.status==="open" && (selectedPool===p)){ window.open(bookingUrl(POOLS[p].id),"_blank"); return; }
+    selectPool(p); return; }
+  const gh=ray.intersectObjects(glassMeshes,false)[0];
+  if(gh) selectPool(gh.object.userData.pool); else assemble();
+});
+
+const tipEl=document.getElementById("tip");
+function hoverPick(e){ setPtr(e);
+  const ch=ray.intersectObjects(coreMeshes,false)[0];
+  if(ch){ const p=ch.object.userData.pool, c=POOLS[p].cells[ch.instanceId];
+    if(c&&c.status!=="out"){ const tag=c.status==="open"?`<span class="g">${c.avail} open</span>`:(c.status==="full"?`<span class="r">sold out</span>`:`<span class="s">held</span>`);
+      tipEl.innerHTML=`<b>${fmt(c.date)}</b> · ${POOLS[p].short} · ${tag}${c.status==="open"?" · tap to book":""}`;
+      tipEl.style.left=e.clientX+"px"; tipEl.style.top=e.clientY+"px"; tipEl.style.opacity=1; canvas.style.cursor="pointer"; return; } }
+  const gh=ray.intersectObjects(glassMeshes,false)[0];
+  tipEl.style.opacity=0; canvas.style.cursor=gh?"pointer":"grab";
+}
+
+function selectPool(p){ selectedPool=p;
+  poolGroups.forEach(pg=>{ const sel=pg.userData.idx===p;
+    pg.userData.tZ = sel? (DEPTH/2*PX+1.4) : poolZ(pg.userData.idx)-1.2;
+    pg.userData.tOp = sel?1:0.18; });
+  highlightPool(p); showPanel(POOLS[p]);
+}
+function assemble(){ selectedPool=null;
+  poolGroups.forEach(pg=>{ pg.userData.tZ=pg.userData.homeZ; pg.userData.tOp=1; });
+  highlightPool(-1); document.getElementById("panel").classList.remove("show");
+}
+document.getElementById("resetBtn").onclick=assemble;
+document.getElementById("panelX").onclick=assemble;
+
+// ---------------- labels + panel ----------------
+const poolsEl=document.getElementById("pools");
+function fillPools(){ poolsEl.innerHTML="";
+  POOLS.forEach((p,i)=>{ const b=document.createElement("button"); b.dataset.pool=i;
+    const dot=p.open.length?"#2ee08a":"#8a2f38";
+    b.innerHTML=`<span class="dot" style="background:${dot}"></span>${p.short}<span class="c">${p.open.length?p.open.length+" open":"sold out"}</span>`;
+    b.onclick=()=>selectPool(i); poolsEl.appendChild(b); }); }
+function highlightPool(p){ [...poolsEl.children].forEach((b,i)=>b.classList.toggle("on",i===p)); }
+function showPanel(pool){ const P=document.getElementById("panel");
+  document.getElementById("pTitle").textContent=pool.name;
+  const tot=pool.open.reduce((a,x)=>a+x.avail,0);
+  document.getElementById("pSub").textContent=pool.open.length?`${pool.open.length} open date${pool.open.length===1?"":"s"} · ${tot} spots · ${pool.units}-spot pool`:`Sold out right now · ${pool.units}-spot pool`;
+  document.getElementById("pChips").innerHTML=pool.open.length?pool.open.map(o=>`<a class="chip" target="_blank" href="${bookingUrl(pool.id)}">${fmt(o.date)} · ${o.avail}</a>`).join(""):`<div class="empty">New dates drop at midnight Pacific — see the countdown.</div>`;
+  document.getElementById("pGo").href=bookingUrl(pool.id); P.classList.add("show"); }
+
+// ---------------- controls ----------------
+document.getElementById("styleSeg").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b)); applyStyle(b.dataset.style); });
+
+let faceOn=false, faceLandmarker=null, video=document.getElementById("cam");
+document.getElementById("trackBtn").addEventListener("click",async()=>{ const btn=document.getElementById("trackBtn");
+  if(faceOn){ faceOn=false; btn.classList.remove("live"); btn.textContent="👁 Head-tracking"; (video.srcObject?.getTracks()||[]).forEach(t=>t.stop()); video.srcObject=null; aim.x=aim.y=0; return; }
+  btn.disabled=true; btn.textContent="Starting…";
+  try{ const {FaceLandmarker,FilesetResolver}=await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs");
+    const fileset=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm");
+    faceLandmarker=await FaceLandmarker.createFromOptions(fileset,{baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",delegate:"GPU"},runningMode:"VIDEO",numFaces:1});
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:320,height:240}});
+    video.srcObject=stream; await video.play(); faceOn=true; btn.disabled=false; btn.classList.add("live"); btn.textContent="👁 Tracking — tap to stop"; hideHint();
+  }catch(err){ btn.disabled=false; btn.textContent="👁 Head-tracking"; showError("Couldn't start head-tracking ("+(err.message||err)+"). Drag/tilt still work."); }
+});
+function trackFace(t){ if(!faceOn||!faceLandmarker||video.readyState<2) return;
+  const res=faceLandmarker.detectForVideo(video,t), lm=res.faceLandmarks&&res.faceLandmarks[0];
+  if(lm){ const n=lm[1]; aim.x=(0.5-n.x)*2*1.6; aim.y=(n.y-0.5)*2*1.6; } }
+
+// ---------------- loop ----------------
+function animate(now){ requestAnimationFrame(animate); const time=now/1000;
+  if(!dragging && selectedPool==null) rot.y+=0.0016;            // gentle idle spin
+  tilt.x+=(aim.x-tilt.x)*0.06; tilt.y+=(aim.y-tilt.y)*0.06;
+  cube.rotation.y=rot.y+tilt.x*0.25; cube.rotation.x=rot.x+tilt.y*0.18;
+  poolGroups.forEach(pg=>{ const u=pg.userData;
+    pg.position.z+=(u.tZ-pg.position.z)*0.1;
+    const m=glassMeshes[u.idx].material, c=coreMeshes[u.idx].material, baseOp=STYLES[styleName].op;
+    m.opacity+=(baseOp*u.tOp-m.opacity)*0.1; c.opacity+=(0.95*u.tOp-c.opacity)*0.1; });
+  spark.position.x=Math.sin(time*0.7)*5; spark.position.y=Math.cos(time*0.5)*3+2;
+  if(scene.environmentRotation) scene.environmentRotation.y=time*0.05;
+  { const pu=0.5+0.5*Math.sin(time*4);   // pulse the "next to unlock" markers + counter chip
+    nextMarkers.forEach(mk=>{ if(mk&&mk.visible){ mk.scale.setScalar(1.08+0.22*pu); mk.material.opacity=0.35+0.5*pu; } });
+    const fi=selectedPool!=null?selectedPool:0, mk=nextMarkers[fi], ch=document.getElementById("nextchip");
+    if(ch){ if(mk&&mk.visible){ const wp=mk.getWorldPosition(new THREE.Vector3()); wp.y+=PX*1.0*fitScale; wp.project(camera);
+        if(wp.z<1){ const ms=nextReleaseMs(),H=Math.floor(ms/3600000),M=Math.floor(ms%3600000/60000),S=Math.floor(ms%60000/1000);
+          ch.innerHTML=`🔒 ${H}h ${String(M).padStart(2,"0")}m ${String(S).padStart(2,"0")}s<span class="u">${POOLS[fi].short} · next unlocks</span>`;
+          ch.style.left=((wp.x*0.5+0.5)*innerWidth)+"px"; ch.style.top=((-wp.y*0.5+0.5)*innerHeight)+"px"; ch.style.opacity=1; }
+        else ch.style.opacity=0; }
+      else ch.style.opacity=0; } }
+  composer.render();
+}
+requestAnimationFrame(animate);
+
+// ---------------- helpers + boot ----------------
+let hintTimer=setTimeout(hideHint,8000);
+function hideHint(){const h=document.getElementById("hint");if(h)h.style.opacity=0;clearTimeout(hintTimer);}
+function showError(m){const e=document.createElement("div");e.className="err";e.textContent=m;document.body.appendChild(e);setTimeout(()=>e.remove(),6000);}
+if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){
+  const ask=()=>{DeviceOrientationEvent.requestPermission().then(s=>{if(s==="granted")addEventListener("deviceorientation",e=>{ if(faceOn||e.gamma==null)return; aim.x=Math.max(-1,Math.min(1,e.gamma/35)); aim.y=Math.max(-1,Math.min(1,((e.beta||40)-40)/35)); });}).catch(()=>{});removeEventListener("touchend",ask);};
+  addEventListener("touchend",ask,{once:true});
+}
+function tickCd(extra){ const ms=nextReleaseMs(),h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000),s=Math.floor(ms%60000/1000);
+  const cd=document.getElementById("cd"); if(cd.textContent.indexOf("ERR")<0) cd.innerHTML=`⏱ next dates open in ${h}h ${String(m).padStart(2,"0")}m ${String(s).padStart(2,"0")}s (${releaseLabel()})${extra||""}`; }
+(async()=>{ try{ const res=await Promise.all(POOLS.map(p=>fetchPool(p,ymd(TODAY))));
+    res.forEach((r,i)=>{ POOLS[i]=r; updateCores(i); }); fillPools();
+    POOLS.forEach((p,i)=>{   // mark each pool's next-to-unlock cubie
+      const nd=parseYMD(p.bookingEnds); nd.setDate(nd.getDate()+1);
+      const k=Math.round((nd-TODAY)/86400000); p.nextK=(k>=0&&k<N)?k:-1;
+      const mk=new THREE.Mesh(coreGeo,new THREE.MeshBasicMaterial({color:0xffc23a,transparent:true,opacity:0.9,toneMapped:false,depthWrite:false}));
+      mk.renderOrder=3; mk.visible=p.nextK>=0;
+      if(p.nextK>=0){ const xy=cellXY(p.nextK); mk.position.set(xy[0],xy[1],0); }
+      poolGroups[i].add(mk); nextMarkers[i]=mk;
+    });
+    const tot=res.reduce((a,r)=>a+r.open.length,0); setInterval(tickCd,1000); tickCd(` · ${tot} open days`);
+  }catch(err){ document.getElementById("cd").textContent="Couldn't load — "+(err.message||err); } })();
+
+window.__dbg={cube,poolGroups,glassMeshes,coreMeshes,POOLS,selectPool,assemble,rot,get dragging(){return dragging;}};
+</script>
+</body>
+</html>
