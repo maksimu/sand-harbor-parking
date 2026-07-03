@@ -88,7 +88,6 @@
 
   <div class="pools" id="pools"></div>
   <div class="tip" id="tip"></div>
-  <div class="nextchip" id="nextchip"></div>
   <div class="hint" id="hint">Drag to spin · tap a slice to pull a pool forward · tap a glowing day to book</div>
 
   <div class="legend" id="legend">
@@ -193,7 +192,7 @@ function statusColor(c){
   return new THREE.Color(0x000000);
 }
 
-const poolGroups=[], glassMeshes=[], coreMeshes=[], nextMarkers=[];
+const poolGroups=[], glassMeshes=[], coreMeshes=[], nextMarkers=[], nextChips=[];
 POOLS.forEach((p,i)=>{
   const pg=new THREE.Group(); pg.position.z=poolZ(i);
   pg.userData={idx:i, homeZ:poolZ(i), tZ:poolZ(i), tOp:1};
@@ -331,15 +330,21 @@ function animate(now){ requestAnimationFrame(animate); const time=now/1000;
     m.opacity+=(baseOp*u.tOp-m.opacity)*0.1; c.opacity+=(0.95*u.tOp-c.opacity)*0.1; });
   spark.position.x=Math.sin(time*0.7)*5; spark.position.y=Math.cos(time*0.5)*3+2;
   if(scene.environmentRotation) scene.environmentRotation.y=time*0.05;
-  { const pu=0.5+0.5*Math.sin(time*4);   // pulse the "next to unlock" markers + counter chip
-    nextMarkers.forEach(mk=>{ if(mk&&mk.visible){ mk.scale.setScalar(1.08+0.22*pu); mk.material.opacity=0.35+0.5*pu; } });
-    const fi=selectedPool!=null?selectedPool:0, mk=nextMarkers[fi], ch=document.getElementById("nextchip");
-    if(ch){ if(mk&&mk.visible){ const wp=mk.getWorldPosition(new THREE.Vector3()); wp.y+=PX*1.0*fitScale; wp.project(camera);
-        if(wp.z<1){ const ms=nextReleaseMs(),H=Math.floor(ms/3600000),M=Math.floor(ms%3600000/60000),S=Math.floor(ms%60000/1000);
-          ch.innerHTML=`🔒 ${H}h ${String(M).padStart(2,"0")}m ${String(S).padStart(2,"0")}s<span class="u">${POOLS[fi].short} · next unlocks</span>`;
-          ch.style.left=((wp.x*0.5+0.5)*innerWidth)+"px"; ch.style.top=((-wp.y*0.5+0.5)*innerHeight)+"px"; ch.style.opacity=1; }
-        else ch.style.opacity=0; }
-      else ch.style.opacity=0; } }
+  { const pu=0.5+0.5*Math.sin(time*4);   // pulse markers + show a "next unlocks" counter on EACH pool's next box
+    const ms=nextReleaseMs(),H=Math.floor(ms/3600000),M=Math.floor(ms%3600000/60000),S=Math.floor(ms%60000/1000);
+    const cd=`${H}h ${String(M).padStart(2,"0")}m ${String(S).padStart(2,"0")}s`;
+    nextMarkers.forEach((mk,i)=>{ const ch=nextChips[i];
+      if(!mk||!mk.visible){ if(ch)ch.style.opacity=0; return; }
+      mk.scale.setScalar(1.08+0.22*pu); mk.material.opacity=0.4+0.5*pu;
+      if(!ch) return;
+      const wp=mk.getWorldPosition(new THREE.Vector3()); wp.y+=PX*0.85*fitScale; wp.project(camera);
+      if(wp.z<1){ const nd=fmt(DATES[POOLS[i].nextK]);
+        ch.innerHTML=`🔒 ${cd}<span class="u">${nd} · ${POOLS[i].short}</span>`;
+        ch.style.left=((wp.x*0.5+0.5)*innerWidth)+"px"; ch.style.top=((-wp.y*0.5+0.5)*innerHeight)+"px";
+        ch.style.opacity = selectedPool==null?0.94:(selectedPool===i?1:0.18);
+        ch.style.zIndex = selectedPool===i?6:4;
+      } else ch.style.opacity=0;
+    }); }
   composer.render();
 }
 requestAnimationFrame(animate);
@@ -363,11 +368,11 @@ function tickCd(extra){ const ms=nextReleaseMs(),h=Math.floor(ms/3600000),m=Math
       mk.renderOrder=3; mk.visible=p.nextK>=0;
       if(p.nextK>=0){ const xy=cellXY(p.nextK); mk.position.set(xy[0],xy[1],0); }
       poolGroups[i].add(mk); nextMarkers[i]=mk;
+      const ch=document.createElement("div"); ch.className="nextchip"; document.body.appendChild(ch); nextChips[i]=ch;
     });
     const tot=res.reduce((a,r)=>a+r.open.length,0); setInterval(tickCd,1000); tickCd(` · ${tot} open days`);
   }catch(err){ document.getElementById("cd").textContent="Couldn't load — "+(err.message||err); } })();
 
-window.__dbg={cube,poolGroups,glassMeshes,coreMeshes,POOLS,selectPool,assemble,rot,get dragging(){return dragging;}};
 </script>
 </body>
 </html>
