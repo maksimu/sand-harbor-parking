@@ -61,24 +61,24 @@
   .few{background:var(--few);color:#2a2202} .few .av{color:#4a3c05}
   .full{background:var(--full);color:#f6c9cd} .full .av{opacity:.75}
   .closed{background:var(--closed);color:#5f7387}
-  /* Gold cell: a calm holographic sheen that reacts to pointer / phone tilt.
-     No timer animation — it's still when you are, glides when you move.
-     Light direction comes from JS via --gx/--gy/--gp/--ga (see sheen driver). */
-  .nextup{position:relative;overflow:hidden;color:#ffe6b0;
-    background:linear-gradient(150deg,#372c11,#221b0a);
-    box-shadow:inset 0 0 0 1.3px rgba(255,205,105,.5), 0 0 10px rgba(255,190,70,.11)}
+  /* Next-to-open cell: SILVER/platinum with a calm holographic sheen that
+     reacts to pointer / phone tilt (still at rest). Silver so it doesn't clash
+     with the gold "almost gone" colour. Light dir via --gx/--gy/--gp/--ga. */
+  .nextup{position:relative;overflow:hidden;color:#eef3f9;
+    background:linear-gradient(150deg,#3b424b,#1f242b);
+    box-shadow:inset 0 0 0 1.4px rgba(212,226,242,.62), 0 0 10px rgba(185,205,230,.15)}
   .nextup > span{position:relative;z-index:2}
-  .nextup .wd{color:#d3ad57}
-  .nextcd{color:#ffe4a6;font-weight:700;font-size:9.5px;letter-spacing:-.2px;text-shadow:0 0 5px rgba(255,205,90,.4)}
+  .nextup .wd{color:#a6b7ca}
+  .nextcd{color:#e9f1fb;font-weight:700;font-size:9.5px;letter-spacing:-.2px;text-shadow:0 0 5px rgba(205,222,245,.5)}
   .nextup::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;border-radius:inherit;
     background:
-      radial-gradient(135% 95% at var(--gx,50%) var(--gy,18%), rgba(255,250,228,.5), rgba(255,222,150,.13) 44%, transparent 66%),
-      linear-gradient(var(--ga,110deg), transparent 41%, rgba(255,235,180,.16) 47%, rgba(255,252,236,.30) 50%, rgba(255,235,180,.16) 53%, transparent 59%);
+      radial-gradient(135% 95% at var(--gx,50%) var(--gy,18%), rgba(246,251,255,.55), rgba(205,222,246,.14) 44%, transparent 66%),
+      linear-gradient(var(--ga,110deg), transparent 41%, rgba(216,230,248,.16) 47%, rgba(255,255,255,.34) 50%, rgba(216,230,248,.16) 53%, transparent 59%);
     background-size:100% 100%, 240% 100%;
     background-position:0 0, var(--gp,50%) 0;
     mix-blend-mode:screen; opacity:.55}
   .nextup::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;border-radius:inherit;
-    background-image:radial-gradient(circle, rgba(255,246,216,.9) .7px, transparent 1.5px);
+    background-image:radial-gradient(circle, rgba(238,246,255,.9) .7px, transparent 1.5px);
     background-size:11px 11px; background-position:var(--gp,50%) var(--gy,20%);
     mix-blend-mode:color-dodge; opacity:.10}
   .open:hover,.few:hover{outline:2px solid #fff}
