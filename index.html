@@ -74,11 +74,11 @@
   .nextup > span{position:relative;z-index:2}
   .nextup .wd{color:#a6b7ca}
   .nextcd{color:#e9f1fb;font-weight:700;font-size:9.5px;letter-spacing:-.2px;text-shadow:0 0 5px rgba(205,222,245,.5)}
-  /* full-width "the calendar stops here" strip, sits inside the day grid */
-  .seasonend{grid-column:1/-1;margin-top:4px;padding:9px 12px;border-radius:9px;font-size:12.5px;color:var(--muted);
-    text-align:center;line-height:1.45;border:1px dashed rgba(255,255,255,.2);
-    background:repeating-linear-gradient(45deg,#1a222c,#1a222c 9px,#20293480 9px,#20293480 18px)}
-  .seasonend b{color:var(--ink)}
+  /* trailing box marking where the calendar stops */
+  .seasonend{color:#93a5b8;border:1px dashed rgba(255,255,255,.22);
+    background:repeating-linear-gradient(45deg,#19212b,#19212b 6px,#202a35 6px,#202a35 12px)}
+  .seasonend .dn{font-size:12.5px;color:#b9c8d8}
+  .seasonend .av{font-size:10.5px}
   .nextup::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;border-radius:inherit;
     background:
       radial-gradient(135% 95% at var(--gx,50%) var(--gy,18%), rgba(246,251,255,.55), rgba(205,222,246,.14) 44%, transparent 66%),
@@ -334,10 +334,15 @@ function render(results){
         <span class="av mono">${label}</span>
       </${tag}>`;
     });
-    // Explain the hard stop right where the calendar ends, for anyone who
-    // skipped the banner at the top.
-    html += `<div class="seasonend">🍂 <b>End of season — ${fmtNew(season.end)} is the last bookable day.</b>
-             The park sells no day-use parking after this; booking resumes for <b>${fmtNew(resumes)}</b>.</div>`;
+    // One extra box marking the hard stop — only when the calendar actually
+    // runs to the season end (with the open-dates filter on, it may not).
+    if(shown.length && shown[shown.length-1].date===season.end){
+      html += `<div class="cell seasonend" title="${fmtNew(season.end)} is the last bookable day — the park sells no day-use parking after it. Booking resumes for ${fmtNew(resumes)}.">
+        <span class="wd">🍂</span>
+        <span class="dn">Season</span>
+        <span class="av">ends</span>
+      </div>`;
+    }
     html += `</div></section>`;
   });
   document.getElementById("facilities").innerHTML = html;
