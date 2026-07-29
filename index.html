@@ -283,7 +283,17 @@ function render(results){
   const openDates = Object.keys(openMap).sort();
   const totalSpots = openDates.reduce((s,dt)=>s+openMap[dt].reduce((a,x)=>a+x.avail,0),0);
 
-  let sum = `<h2>${openDates.length} date${openDates.length===1?"":"s"} with open spots`+
+  let sum;
+  if(!season.active){
+    // Off-season (e.g. November): there is nothing to book at all, so don't
+    // imply the park is merely sold out.
+    sum = `<h2>🌙 Closed for the season</h2>`+
+          `<div style="color:var(--muted);margin-top:6px">Sand Harbor sells day-use parking only `+
+          `<b style="color:var(--ink)">${fmtNew(season.start)} – ${fmtNew(season.end)}</b>, `+
+          `so there is nothing to book right now.</div>`;
+    document.getElementById("summary").innerHTML = sum;
+  }else{
+  sum = `<h2>${openDates.length} date${openDates.length===1?"":"s"} with open spots`+
             ` · ${totalSpots} total parking spots available right now</h2>`;
   if(openDates.length===0){
     sum += `<div style="color:var(--muted);margin-top:6px">Everything is currently booked. New inventory drops each morning — check back, or turn on auto-refresh.</div>`;
@@ -300,6 +310,7 @@ function render(results){
     sum += `</div>`;
   }
   document.getElementById("summary").innerHTML = sum;
+  }
 
   // ---- per-facility calendars ----
   let html = "";
@@ -313,7 +324,9 @@ function render(results){
         <span class="meta">${f.units} spots · ${open.length} open date${open.length===1?"":"s"}</span>
       </div>`;
     if(shown.length===0){
-      html += `<div class="note" style="margin:0">No open dates in this window right now.</div></section>`;
+      html += `<div class="note" style="margin:0">${season.active
+        ? "No open dates in this window right now."
+        : `Closed until <b>${fmtNew(season.start)}</b> — bookable from ${fmtLong(seasonOpensOn(season))}.`}</div></section>`;
       return;
     }
     html += `<div class="grid">`;
@@ -337,7 +350,8 @@ function render(results){
     // One extra box marking the hard stop — only when the calendar actually
     // runs to the season end (with the open-dates filter on, it may not).
     if(shown.length && shown[shown.length-1].date===season.end){
-      html += `<div class="cell seasonend" title="${fmtNew(season.end)} is the last bookable day — the park sells no day-use parking after it. Booking resumes for ${fmtNew(resumes)}.">
+      const reopen = seasonFor(season.active ? season.year+1 : season.year);
+      html += `<div class="cell seasonend" title="${fmtLong(season.end)} is the last bookable day — the park sells no day-use parking after it.&#10;&#10;Next season runs ${fmtNew(reopen.start)} – ${fmtNew(reopen.end)} ${reopen.year}. Its first day goes on sale ${fmtLong(seasonOpensOn(reopen))} at ${releaseLabel()}.">
         <span class="wd">🍂</span>
         <span class="dn">Season</span>
         <span class="av">ends</span>
@@ -356,7 +370,7 @@ function render(results){
   const upcoming = results
     .filter(f=>f.bookingEnds)
     .map(f=>({pool:f.name.split(" in")[0], date:addDays(f.bookingEnds,1)}))
-    .filter(u=>u.date<=season.end)
+    .filter(u=>u.date>=season.start && u.date<=season.end)   // must land inside the season
     .sort((a,b)=>a.date<b.date?-1:1);
   startCountdown(upcoming, season);
 
@@ -374,17 +388,10 @@ function fmtLong(date){const D=parseYMD(date);return `${WD[D.getDay()]} ${MO[D.g
 function renderSeasonNote(season){
   const el = document.getElementById("seasonnote");
   if(!el) return;
-  if(season.active){
-    el.className = "seasonnote";
-    el.innerHTML = `☀️ Day-use parking runs <b>${fmtNew(season.start)} – ${fmtNew(season.end)}</b>. `+
-                   `Calendars stop at <b>${fmtNew(season.end)}</b> — the park sells nothing past it.`;
-  }else{
-    const opens = seasonOpensOn(season);
-    el.className = "seasonnote off";
-    el.innerHTML = `🌙 <b>Out of season.</b> Sand Harbor sells day-use parking `+
-                   `<b>${fmtNew(season.start)} – ${fmtNew(season.end)}</b>. The <b>${season.year}</b> season's first day `+
-                   `(${fmtLong(season.start)}) becomes bookable on <b>${fmtLong(opens)}</b> at ${releaseLabel()}.`;
-  }
+  if(!season.active){ el.hidden = true; return; }   // off-season: the summary says it, don't repeat
+  el.className = "seasonnote";
+  el.innerHTML = `☀️ Day-use parking runs <b>${fmtNew(season.start)} – ${fmtNew(season.end)}</b>. `+
+                 `Calendars stop at <b>${fmtNew(season.end)}</b> — the park sells nothing past it.`;
   el.hidden = false;
 }
 
