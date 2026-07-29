@@ -134,8 +134,17 @@ const ymd=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+Stri
 const parseYMD=s=>{const[a,b,c]=s.split("-").map(Number);return new Date(a,b-1,c);};
 const fmt=s=>{const d=parseYMD(s);return `${WD[d.getDay()]} ${MO[d.getMonth()]} ${d.getDate()}`;};
 const bookingUrl=id=>`https://reservenevada.com/NevadaWeb/#!park/${PARK_ID}/${id}`;
+// Reservation season: the park sells day-use parking May 1 - Sep 30 only, and
+// loads no inventory past Sep 30, so later cubies are dead space, not "held".
+const SEASON_START_MD="05-01", SEASON_END_MD="09-30", BOOK_AHEAD_DAYS=90;
+function seasonFor(y){ return {year:y, start:`${y}-${SEASON_START_MD}`, end:`${y}-${SEASON_END_MD}`}; }
+function seasonInfo(today){ const y=+today.slice(0,4), cur=seasonFor(y);
+  if(today>cur.end) return {...seasonFor(y+1), active:false};
+  if(today<cur.start) return {...cur, active:false};
+  return {...cur, active:true}; }
 const TODAY=new Date(); TODAY.setHours(0,0,0,0);
 const DATES=Array.from({length:N},(_,k)=>{const d=new Date(TODAY);d.setDate(d.getDate()+k);return ymd(d);});
+const SEASON=seasonInfo(ymd(TODAY));
 
 async function fetchPool(p,start){
   const r=await fetch(`${API}/${p.id}/startdate/${start}/nights/${N}/0`,{headers:{Accept:"application/json"}});
@@ -144,7 +153,7 @@ async function fetchPool(p,start){
   for(const k in raw){const v=raw[k];by[v.Date]={avail:v.TotalAvailable|0,reserved:v.ReservationCount|0};}
   const ends=((j.Facility&&j.Facility.Restrictions||{}).FutureBookingEnds||"").slice(0,10);
   const cells=DATES.map(date=>{ const d=by[date]||{avail:0,reserved:0};
-    const inWin = ends ? date<=ends : (d.avail>0||d.reserved>0);
+    const inWin = (date<=SEASON.end) && (ends ? date<=ends : (d.avail>0||d.reserved>0));
     let status="out"; if(inWin) status=d.avail>0?"open":(d.reserved>0?"full":"hold");
     return {date,status,avail:d.avail,reserved:d.reserved}; });
   return {...p, cells, open:cells.filter(c=>c.status==="open").map(c=>({date:c.date,avail:c.avail})), bookingEnds:ends};
@@ -363,7 +372,8 @@ function tickCd(extra){ const ms=nextReleaseMs(),h=Math.floor(ms/3600000),m=Math
     res.forEach((r,i)=>{ POOLS[i]=r; updateCores(i); }); fillPools();
     POOLS.forEach((p,i)=>{   // mark each pool's next-to-unlock cubie
       const nd=parseYMD(p.bookingEnds); nd.setDate(nd.getDate()+1);
-      const k=Math.round((nd-TODAY)/86400000); p.nextK=(k>=0&&k<N)?k:-1;
+      const k=Math.round((nd-TODAY)/86400000);
+      p.nextK=(k>=0 && k<N && ymd(nd)<=SEASON.end) ? k : -1;   // nothing opens past season end
       const mk=new THREE.Mesh(coreGeo,new THREE.MeshBasicMaterial({color:0xffc23a,transparent:true,opacity:0.9,toneMapped:false,depthWrite:false}));
       mk.renderOrder=3; mk.visible=p.nextK>=0;
       if(p.nextK>=0){ const xy=cellXY(p.nextK); mk.position.set(xy[0],xy[1],0); }
