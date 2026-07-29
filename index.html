@@ -29,6 +29,10 @@
   .note .hint{color:var(--muted);font-weight:400;font-size:12.5px}
   .note[open] .hint{display:none}
   .note-body{margin-top:8px}
+  .seasonnote{background:#10202b;border:1px solid var(--line);border-left:3px solid #3f8f76;
+              border-radius:10px;padding:9px 14px;margin:0 0 12px;font-size:13px;color:var(--muted)}
+  .seasonnote b{color:var(--ink)}
+  .seasonnote.off{border-left-color:#7a6cc4;background:#151a2e}
   .countdown{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:#10202b;border:1px solid var(--line);
              border-left:3px solid var(--accent2);border-radius:10px;padding:10px 14px;margin:0 0 14px;font-size:13.5px}
   .countdown .clock{font-weight:700;color:#cfe7ff;font-size:15px}
@@ -148,6 +152,8 @@
     So "available" dates are almost always clustered near the <b>90-day edge</b> (plan-ahead) or <b>tomorrow</b> (last-minute). Tap any green/yellow date to jump straight to that pool's booking page.</div>
   </details>
 
+  <div class="seasonnote" id="seasonnote" hidden></div>
+
   <div class="countdown" id="countdown" hidden></div>
 
   <div class="summary" id="summary"><div class="loading">Loading live availability…</div></div>
@@ -183,6 +189,24 @@ function releaseLabel(){const h=RELEASE_HOUR_PT,m=RELEASE_MIN_PT,hh=((h+11)%12)+
 function ymd(dt){return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");}
 function parseYMD(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);}
 function addDays(s,n){const d=parseYMD(s);d.setDate(d.getDate()+n);return ymd(d);}
+
+// ── Reservation season. Sand Harbor only sells day-use parking May 1 – Sep 30. ──
+// Sep 30 end is confirmed two ways: the park FAQ, and the API itself (it loads
+// zero inventory past Sep 30 — every later date is 0 available AND 0 reserved).
+// The FAQ is ambiguous about the start (it says both "May 1" and "May 15"), so
+// we use May 1; only the winter "next season" note depends on it.
+const SEASON_START_MD = "05-01", SEASON_END_MD = "09-30";
+const BOOK_AHEAD_DAYS = 90;                       // widest pool = how early a date can open
+function seasonFor(y){ return {year:y, start:`${y}-${SEASON_START_MD}`, end:`${y}-${SEASON_END_MD}`}; }
+// Which season matters right now, and are we inside it?
+function seasonInfo(today){
+  const y = +today.slice(0,4), cur = seasonFor(y);
+  if(today > cur.end) return {...seasonFor(y+1), active:false};   // this year's is over → next year
+  if(today < cur.start) return {...cur, active:false};            // before it starts
+  return {...cur, active:true};
+}
+// The day bookings first open for a season's opening day.
+function seasonOpensOn(s){ return addDays(s.start, -BOOK_AHEAD_DAYS); }
 
 // Time remaining until the next RELEASE_HOUR_PT in America/Los_Angeles.
 // Works from any viewer timezone: we read the current LA wall-clock and the
@@ -238,6 +262,13 @@ function load(){
 function render(results){
   const onlyOpen = document.getElementById("onlyopen").checked;
 
+  // ---- clamp everything to the reservation season ----
+  // The park loads no inventory outside May 1 – Sep 30, so dates past the season
+  // end are noise (they'd render as "not released" forever). Drop them.
+  const season = seasonInfo(ymd(new Date()));
+  results = results.map(f=>({...f, days:f.days.filter(d=>d.date>=season.start && d.date<=season.end)}));
+  renderSeasonNote(season);
+
   // ---- summary: every date with any open spots, across all pools ----
   const openMap = {}; // date -> [{facName, avail, id}]
   results.forEach(f=>f.days.forEach(d=>{
@@ -280,7 +311,9 @@ function render(results){
       return;
     }
     html += `<div class="grid">`;
-    const nextDate = f.bookingEnds ? addDays(f.bookingEnds,1) : null;
+    // A pool only has a "next to open" date while its window still has season left.
+    let nextDate = f.bookingEnds ? addDays(f.bookingEnds,1) : null;
+    if(nextDate && nextDate > season.end) nextDate = null;
     shown.forEach(d=>{
       const D=parseYMD(d.date), isNext = d.date===nextDate;
       const cls = isNext ? "nextup" : classify(d);
@@ -302,11 +335,15 @@ function render(results){
   // ---- next-release countdown ----
   // Each pool's window advances by one day at the daily release; the next date
   // to open is the day right after its current last-bookable date.
+  // A pool stops releasing once its window has reached the end of the season —
+  // e.g. after early July the 90-day pool has already put every remaining
+  // season date on sale, so it will not open anything new until next year.
   const upcoming = results
     .filter(f=>f.bookingEnds)
     .map(f=>({pool:f.name.split(" in")[0], date:addDays(f.bookingEnds,1)}))
+    .filter(u=>u.date<=season.end)
     .sort((a,b)=>a.date<b.date?-1:1);
-  startCountdown(upcoming);
+  startCountdown(upcoming, season);
 
   const now = new Date();
   document.getElementById("updated").textContent =
@@ -316,10 +353,42 @@ function render(results){
 // ---- countdown ticker ----
 let cdTimer=null;
 function fmtNew(date){const D=parseYMD(date);return `${WD[D.getDay()]} ${MO[D.getMonth()]} ${D.getDate()}`;}
-function startCountdown(upcoming){
+function fmtLong(date){const D=parseYMD(date);return `${WD[D.getDay()]} ${MO[D.getMonth()]} ${D.getDate()}, ${D.getFullYear()}`;}
+
+// Banner explaining the season, so a stopped calendar never looks broken.
+function renderSeasonNote(season){
+  const el = document.getElementById("seasonnote");
+  if(!el) return;
+  if(season.active){
+    el.className = "seasonnote";
+    el.innerHTML = `☀️ Day-use parking runs <b>${fmtNew(season.start)} – ${fmtNew(season.end)}</b>. `+
+                   `Calendars stop at <b>${fmtNew(season.end)}</b> — the park sells nothing past it.`;
+  }else{
+    const opens = seasonOpensOn(season);
+    el.className = "seasonnote off";
+    el.innerHTML = `🌙 <b>Out of season.</b> Sand Harbor sells day-use parking `+
+                   `<b>${fmtNew(season.start)} – ${fmtNew(season.end)}</b>. The <b>${season.year}</b> season's first day `+
+                   `(${fmtLong(season.start)}) becomes bookable on <b>${fmtLong(opens)}</b> at ${releaseLabel()}.`;
+  }
+  el.hidden = false;
+}
+
+function startCountdown(upcoming, season){
   clearInterval(cdTimer);
   const el = document.getElementById("countdown");
-  if(!upcoming.length){ el.hidden = true; return; }
+  if(!upcoming.length){
+    // Nothing new can open: either the window already covers the rest of the
+    // season, or we're out of season entirely. Point at the next opening instead.
+    const next = season.active ? seasonFor(season.year+1) : season;
+    const opens = seasonOpensOn(next);
+    const lead = season.active
+      ? `Every remaining date this season is already released`
+      : `Reservations are closed for the season`;
+    el.innerHTML = `<span class="clock">🌙 ${lead}</span>`+
+                   `<span class="next">→ next release: <b>${fmtLong(opens)}</b> at ${releaseLabel()}, `+
+                   `when <b>${fmtNew(next.start)}</b> (opening day of the ${next.year} season) goes on sale.</span>`;
+    el.hidden = false; return;
+  }
   const nextList = upcoming.map(u=>`<b>${fmtNew(u.date)}</b> (${u.pool})`).join(" · ");
   function tick(){
     const ms = nextRelease().msUntil;
