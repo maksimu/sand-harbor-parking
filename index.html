@@ -74,6 +74,11 @@
   .nextup > span{position:relative;z-index:2}
   .nextup .wd{color:#a6b7ca}
   .nextcd{color:#e9f1fb;font-weight:700;font-size:9.5px;letter-spacing:-.2px;text-shadow:0 0 5px rgba(205,222,245,.5)}
+  /* full-width "the calendar stops here" strip, sits inside the day grid */
+  .seasonend{grid-column:1/-1;margin-top:4px;padding:9px 12px;border-radius:9px;font-size:12.5px;color:var(--muted);
+    text-align:center;line-height:1.45;border:1px dashed rgba(255,255,255,.2);
+    background:repeating-linear-gradient(45deg,#1a222c,#1a222c 9px,#20293480 9px,#20293480 18px)}
+  .seasonend b{color:var(--ink)}
   .nextup::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;border-radius:inherit;
     background:
       radial-gradient(135% 95% at var(--gx,50%) var(--gy,18%), rgba(246,251,255,.55), rgba(205,222,246,.14) 44%, transparent 66%),
@@ -266,6 +271,7 @@ function render(results){
   // The park loads no inventory outside May 1 – Sep 30, so dates past the season
   // end are noise (they'd render as "not released" forever). Drop them.
   const season = seasonInfo(ymd(new Date()));
+  const resumes = (season.active ? seasonFor(season.year+1) : season).start;  // when booking picks back up
   results = results.map(f=>({...f, days:f.days.filter(d=>d.date>=season.start && d.date<=season.end)}));
   renderSeasonNote(season);
 
@@ -328,6 +334,10 @@ function render(results){
         <span class="av mono">${label}</span>
       </${tag}>`;
     });
+    // Explain the hard stop right where the calendar ends, for anyone who
+    // skipped the banner at the top.
+    html += `<div class="seasonend">🍂 <b>End of season — ${fmtNew(season.end)} is the last bookable day.</b>
+             The park sells no day-use parking after this; booking resumes for <b>${fmtNew(resumes)}</b>.</div>`;
     html += `</div></section>`;
   });
   document.getElementById("facilities").innerHTML = html;
